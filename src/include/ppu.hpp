@@ -4,6 +4,9 @@
 namespace PPU {
 
 
+extern u32 pixels[];
+
+
 enum Scanline  { VISIBLE, POST, NMI, PRE };
 enum Mirroring { VERTICAL, HORIZONTAL };
 

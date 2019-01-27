@@ -11,7 +11,8 @@ const int TEXT_CENTER  = -1;
 const int TEXT_RIGHT   = -2;
 const unsigned FONT_SZ = 15;
 
-void init();
+//void init();
+void init(char *rom_path);
 void toggle_pause();
 SDL_Scancode query_key();
 int query_button();

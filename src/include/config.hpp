@@ -13,7 +13,7 @@
 namespace GUI {
 
 /* Loading and saving */
-void load_settings();
+void load_settings(int screen_size);
 void save_settings();
 const char* get_config_path(char * buf, int buflen);
 
