@@ -141,31 +141,80 @@ void send_screen_to_remote()
 {
     /* Dump the 'pixels' over TCP to the client */
 
-    char *header = (char *)"display: ";
+    char *header = (char *)"display:\n";
     write(controller_fd, header, strlen(header));
 
     char bigbuf[WIDTH * HEIGHT * 3 * 5] = ""; /* 3 rgb values, with max 4 chars per colour */
-    char *p = bigbuf;
+    char *bigbuf_ptr = bigbuf;
 
-    for (int i = 0; i < (WIDTH * HEIGHT); i++) {
+
+    /**** USE BIGBUFPTR TO AVOID CALLING WRITE TOO OFTEN ****/
+
+    printf("SENDING SCREEN\n");
+    for (int r = 0; r < HEIGHT; r++) {
+        int offset = r * WIDTH;
+
+        char linebuf[10000] = "";
+        linebuf[0] = '\0';
+        char *lineptr = linebuf;
+
+//        printf(" line number %d:\n", r);
+
+        for (int c = 0; c < WIDTH; c++) {
+            Uint8 r, g, b;
+
+            Uint32 pixel = PPU::pixels[offset + c];
+
+            r = (0x00ff0000 & pixel) >> 16;
+            g = (0x0000ff00 & pixel) >> 8;
+            b = (0x000000ff & pixel);
+
+            char minibuf[100];
+            snprintf(minibuf, sizeof(minibuf) - 1, "%hhu,%hhu,%hhu,", r, g, b);
+            //strcat(linebuf, minibuf);
+
+            char *p = minibuf;
+            while (*p) {
+                *lineptr = *p;
+                lineptr++;
+                p++;
+            }
+        }
+        //strcat(linebuf, "\n");
+        *(lineptr++) = '\n';
+        *(lineptr++) = '\0';
+        write(controller_fd, linebuf, strlen(linebuf));
+
+    }
+    send_message_to_remote((char *)"Done");
+
+    printf("bigbuf = >%s<", bigbuf);
+}
+
+
+/* Send the contents of the screen to the remote in binary. 
+   Sends: 256x240 pixels from screen[], in binary format */
+void send_binary_screen_to_remote()
+{
+    /* Dump the 'pixels' over TCP to the client */
+
+    Uint8 buf[WIDTH * HEIGHT * 3];
+    Uint8 *ptr = buf;
+
+    for (int c = 0; c < HEIGHT * WIDTH; c++) {
         Uint8 r, g, b;
-
-        Uint32 pixel = PPU::pixels[i];
+        Uint32 pixel = PPU::pixels[c];
 
         r = (0x00ff0000 & pixel) >> 16;
         g = (0x0000ff00 & pixel) >> 8;
         b = (0x000000ff & pixel);
 
-        char minibuf[100];
-        snprintf(minibuf, sizeof(minibuf) - 1, "%hhu,%hhu,%hhu, ", r, g, b);
-        strcat(p, minibuf);
-        p += strlen(minibuf);
+        *(ptr++) = r;
+        *(ptr++) = g;
+        *(ptr++) = b;
     }
-    write(controller_fd, bigbuf, strlen(bigbuf));
-    write(controller_fd, (char *)"\n", 1);
-    send_message_to_remote((char *)"Done");
+    write(controller_fd, buf, sizeof(buf));
 }
-
 
 /* Parse an actual command string that's come in */
 void handle_remote_command(char *cmd)
@@ -175,7 +224,6 @@ void handle_remote_command(char *cmd)
         char *p = cmd;
         p += 2;
         unsigned short pad_value, pad;
-        printf("Setting remote joypad state to %d\n", pad_value);
 
         int num_read = sscanf(p, "%hu %hu", &pad_value, &pad);
 
@@ -189,6 +237,7 @@ void handle_remote_command(char *cmd)
             // user didn't specify pad, assume 0 
             pad = 0;
         }
+        printf("cmd = >>%s<<, Setting remote joypad state to %d\n", cmd, pad_value);
         remote_joypad_state[pad] = pad_value;
     }
     else if (strstarts("reset", cmd)) {
@@ -204,7 +253,10 @@ void handle_remote_command(char *cmd)
         /* dump contents of the screen */
         send_screen_to_remote();
     }
-    
+    else if (strstarts("binscreen", cmd)) {
+        /* dump contents of the screen in binary */
+        send_binary_screen_to_remote();
+    }
 }
 
 
@@ -247,7 +299,7 @@ void handle_remote_input()
                 strncpy(cmd, remote_input_buffer, p - remote_input_buffer);
                 cmd[p - remote_input_buffer] = '\0';
 
-                printf("REMOTE COMMAND:  >>>%s<<<\n", cmd);
+                //printf("REMOTE COMMAND:  >>>%s<<<\n", cmd);
                 handle_remote_command(cmd);
 
                 /* copy contents from p until '\0' is encounted to a buffer, then 
@@ -284,10 +336,10 @@ u8 get_joypad_state(int n)
         /* note, we OR this here, so that we can still use the
            keyboard to play with when testing... */
         j |= get_joypad_state_from_tcp(n);
-        printf("Remote state after tcp: %d\n", j);
+//        printf("Remote state after tcp: %d\n", j);
     }
 
-    printf("keyboard_state: %d, get_joypad_state:  %d\n", keyboard_state, j);
+//    printf("keyboard_state: %d, get_joypad_state:  %d\n", keyboard_state, j);
     return j;
 }
 
