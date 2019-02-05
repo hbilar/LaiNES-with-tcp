@@ -34,15 +34,36 @@ int wait_for_client_connection(int port)
     struct sockaddr_in ipv4_addr; 
     ipv4_addr.sin_family = AF_INET;  // specify the IPV4 protocol family 
     ipv4_addr.sin_addr.s_addr = INADDR_ANY;  // listen to any available interface 
-    ipv4_addr.sin_port = htons(port); 
 
-    /* bind to the socket, and then start listening for connections */
-    if (bind(socket_fd, (struct sockaddr *)&ipv4_addr, sizeof(ipv4_addr)) < 0) { 
-        DIE("Failed to bind()");
-    } 
-    if (listen(socket_fd, 3) < 0) { 
-        DIE("Failed to listen()");
-    } 
+
+    /* If the bind fails, keep increasing until we find a port we can bind on */
+
+    bool done = false;
+    while (! done) {
+        ipv4_addr.sin_port = htons(port); 
+        if (port > 9000) {
+            printf("Couldn't bind any ports up to %d\n", port);
+            DIE("failed to bind");
+        }
+
+        printf("Trying to bind to port %d\n", port);
+
+        /* bind to the socket, and then start listening for connections */
+        if (bind(socket_fd, (struct sockaddr *)&ipv4_addr, sizeof(ipv4_addr)) < 0) { 
+            //DIE("Failed to bind()");
+            printf("Failed to bind() - trying next port!");
+            port ++;
+            continue;
+        } 
+        if (listen(socket_fd, 3) < 0) { 
+            //DIE("Failed to listen()");
+            printf("Failed to listen() - trying next port!");
+            port ++;
+            continue;
+        } 
+
+        done = true;
+    }
 
     socklen_t addrlen = sizeof(ipv4_addr);
     /* Now, wait for a connection before returning */
