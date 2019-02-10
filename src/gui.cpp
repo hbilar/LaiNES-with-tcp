@@ -243,7 +243,7 @@ void handle_remote_command(char *cmd)
     else if (strstarts("reset", cmd)) {
         /* reset */
         send_message_to_remote((char *)"Resetting console!");
-        printf("Resetting console!");
+        printf("Resetting console!\n");
 
         CPU::power();
         PPU::reset();
@@ -256,6 +256,11 @@ void handle_remote_command(char *cmd)
     else if (strstarts("binscreen", cmd)) {
         /* dump contents of the screen in binary */
         send_binary_screen_to_remote();
+    }
+    else if (strstarts("poweroff", cmd)) {
+        /* kill ourselves */
+        printf("Powering off console\n");
+        exit(0);
     }
 }
 
